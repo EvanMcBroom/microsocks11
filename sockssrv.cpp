@@ -293,6 +293,12 @@ breakloop:
 	return 0;
 }
 
+/* prevent username and password from showing up in top. */
+static void zero_arg(char *s) {
+	size_t i, l = strlen(s);
+	for(i=0;i<l;i++) s[i] = 0;
+}
+
 int main(int argc, char** argv) {
 	cxxopts::Options options("MicroSocks", "SOCKS5 Server");
 	options.add_options()
@@ -345,8 +351,10 @@ int main(int argc, char** argv) {
 
 	verbose = result.count("v") != 0;
 
-	for (size_t i = 1; i < argc; i++)
-		zero_arg(argv[i]);
+	for (size_t i = 1; i < argc; i++) {
+		size_t c, l = strlen(argv[i]);
+		for (i = 0; c < l; c++) argv[i][c] = 0;
+	}
 
 #ifdef WINDOWS
 	WSADATA wsaData = { 0 };
