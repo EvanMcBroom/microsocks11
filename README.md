@@ -1,54 +1,53 @@
-MicroSocks - multithreaded, small, efficient SOCKS5 server.
-===========================================================
+# MicroSocks11 - A cross-platform SOCKS5 server.
 
-a SOCKS5 service that you can run on your remote boxes to tunnel connections
-through them, if for some reason SSH doesn't cut it for you.
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 
-It's very lightweight, and very light on resources too:
+MicroSocks11 is a port of the [microsocks](https://github.com/rofl0r/microsocks) project to use CMake and C++11 threads for cross-platform support.
 
-for every client, a thread with a stack size of 8KB is spawned.
-the main process basically doesn't consume any resources at all.
+## Building
 
-the only limits are the amount of file descriptors and the RAM.
+MicroSocks11 requres [cxxopts](https://github.com/jarro2783/cxxopts) which can be installed using [vcpkg](https://github.com/microsoft/vcpkg).
 
-It's also designed to be robust: it handles resource exhaustion
-gracefully by simply denying new connections, instead of calling abort()
-as most other programs do these days.
+```
+vcpkg install cxxopts
+```
 
-another plus is ease-of-use: no config file necessary, everything can be
-done from the command line and doesn't even need any parameters for quick
-setup.
+MicroSocks11 uses [CMake](https://cmake.org/) to generate and run the build system files for your platform.
 
-History
--------
+```
+git clone git@github.com:EvanMcBroom/microsocks11.git
+cd microsocks11
+mkdir builds
+cd builds
+cmake .. -DCMAKE_TOOLCHAIN_FILE=$VCPKG_PATH/scripts/buildsystems/vcpkg.cmake
+cmake --build . --target microsocks
+```
 
-This is the successor of "rocksocks5", and it was written with
-different goals in mind:
+## Running
 
-- prefer usage of standard libc functions over homegrown ones
-- no artificial limits
-- do not aim for minimal binary size, but for minimal source code size,
-  and maximal readability, reusability, and extensibility.
+MicroSocks11 is simple to use and can be ran directly with default arguments.
 
-as a result of that, ipv4, dns, and ipv6 is supported out of the box
-and can use the same code, while rocksocks5 has several compile time
-defines to bring down the size of the resulting binary to extreme values
-like 10 KB static linked when only ipv4 support is enabled.
+```
+./microsocks --help
+SOCKS5 Server
+Usage:
+  MicroSocks [OPTION...]
 
-still, if optimized for size, *this* program when static linked against musl
-libc is not even 50 KB. that's easily usable even on the cheapest routers.
+  -1, --auth-once         Whitelist an ip address after authenticating to not
+                          requre a password on subsequent connections
+  -b, --bind-address arg  Int param (default: )
+  -h, --help              Print this message
+  -l, --listen-ip arg     Ip address to listen on (default: 0.0.0.0)
+  -p, --port arg          Port to listen on (default: 1080)
+  -u, --user arg          The username to use for authentication
+  -v, --verbose           Verbose output
+  -P, --password arg      The password to use for authentication
+./microsocks
+...
+```
 
-command line options
-------------------------
+You can use curl to test if the proxy is running.
 
-    microsocks -1 -i listenip -p port -u user -P password -b bindaddr
-
-all arguments are optional.
-by default listenip is 0.0.0.0 and port 1080.
-
-option -1 activates auth_once mode: once a specific ip address
-authed successfully with user/pass, it is added to a whitelist
-and may use the proxy without auth.
-this is handy for programs like firefox that don't support
-user/pass auth. for it to work you'd basically make one connection
-with another program that supports it, and then you can use firefox too.
+```
+curl --socks5-hostname localhost:1080 icanhazip.com
+```
