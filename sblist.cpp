@@ -1,7 +1,5 @@
-#undef _POSIX_C_SOURCE
-#define _POSIX_C_SOURCE 200809L
-#include "sblist.h"
 #include <limits.h>
+#include <sblist.h>
 #include <stdlib.h>
 #include <string.h>
 #define MY_PAGE_SIZE 4096
@@ -58,7 +56,7 @@ int sblist_set(sblist* l, void* item, size_t pos) {
 int sblist_grow_if_needed(sblist* l) {
 	char* temp;
 	if(l->count == l->capa) {
-		temp = realloc(l->items, (l->capa + l->blockitems) * l->itemsize);
+		temp = reinterpret_cast<char*>(realloc(l->items, (l->capa + l->blockitems) * l->itemsize));
 		if(!temp) return 0;
 		l->capa += l->blockitems;
 		l->items = temp;

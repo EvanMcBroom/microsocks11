@@ -1,65 +1,31 @@
-/*
-   MicroSocks - multithreaded, small, efficient SOCKS5 server.
+/* Copyright (C) 2017 rofl0r. */
 
-   Copyright (C) 2017 rofl0r.
-
-   This is the successor of "rocksocks5", and it was written with
-   different goals in mind:
-
-   - prefer usage of standard libc functions over homegrown ones
-   - no artificial limits
-   - do not aim for minimal binary size, but for minimal source code size,
-     and maximal readability, reusability, and extensibility.
-
-   as a result of that, ipv4, dns, and ipv6 is supported out of the box
-   and can use the same code, while rocksocks5 has several compile time
-   defines to bring down the size of the resulting binary to extreme values
-   like 10 KB static linked when only ipv4 support is enabled.
-
-   still, if optimized for size, *this* program when static linked against musl
-   libc is not even 50 KB. that's easily usable even on the cheapest routers.
-
-*/
-
-#define _GNU_SOURCE
-#include <unistd.h>
-#define _POSIX_C_SOURCE 200809L
+#include <algorithm>
+#include <cxxopts.hpp>
+#include <errno.h>
+#include <future>
+#include <limits.h>
+#include <memory>
+#include <mutex>
+#include <sblist.h>
+#include <server.h>
+#include <signal.h>
+#include <sockets.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <pthread.h>
-#include <signal.h>
-#include <sys/select.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <limits.h>
-#include "server.h"
-#include "sblist.h"
-
-#ifndef MAX
-#define MAX(x, y) ((x) > (y) ? (x) : (y))
-#endif
-
-#ifdef PTHREAD_STACK_MIN
-#define THREAD_STACK_SIZE MAX(8*1024, PTHREAD_STACK_MIN)
-#else
-#define THREAD_STACK_SIZE 64*1024
-#endif
-
-#if defined(__APPLE__)
-#undef THREAD_STACK_SIZE
-#define THREAD_STACK_SIZE 64*1024
-#elif defined(__GLIBC__) || defined(__FreeBSD__)
-#undef THREAD_STACK_SIZE
-#define THREAD_STACK_SIZE 32*1024
-#endif
+#include <thread>
+#include <vector>
 
 static const char* auth_user;
 static const char* auth_pass;
 static sblist* auth_ips;
-static pthread_mutex_t auth_ips_mutex = PTHREAD_MUTEX_INITIALIZER;
+const char* listenip;
+unsigned port;
+static std::mutex auth_ips_mutex;
 static const struct server* server;
-static union sockaddr_union bind_addr = {.v4.sin_family = AF_UNSPEC};
+static union sockaddr_union bind_addr{ AF_UNSPEC };
+static bool verbose;
 
 enum socksstate {
 	SS_1_CONNECTED,
@@ -86,24 +52,10 @@ enum errorcode {
 	EC_ADDRESSTYPE_NOT_SUPPORTED = 8,
 };
 
-struct thread {
-	pthread_t pt;
+struct context_t {
 	struct client client;
 	enum socksstate state;
-	volatile int  done;
 };
-
-#ifndef CONFIG_LOG
-#define CONFIG_LOG 1
-#endif
-#if CONFIG_LOG
-/* we log to stderr because it's not using line buffering, i.e. malloc which would need
-   locking when called from different threads. for the same reason we use dprintf,
-   which writes directly to an fd. */
-#define dolog(...) dprintf(2, __VA_ARGS__)
-#else
-static void dolog(const char* fmt, ...) { }
-#endif
 
 static int connect_socks_target(unsigned char *buf, size_t n, struct client *client) {
 	if(n < 5) return -EC_GENERAL_FAILURE;
@@ -143,7 +95,7 @@ static int connect_socks_target(unsigned char *buf, size_t n, struct client *cli
 	int fd = socket(remote->ai_addr->sa_family, SOCK_STREAM, 0);
 	if(fd == -1) {
 		eval_errno:
-		if(fd != -1) close(fd);
+		if(fd != -1) closesocket_(fd);
 		freeaddrinfo(remote);
 		switch(errno) {
 			case ETIMEDOUT:
@@ -171,13 +123,12 @@ static int connect_socks_target(unsigned char *buf, size_t n, struct client *cli
 		goto eval_errno;
 
 	freeaddrinfo(remote);
-	if(CONFIG_LOG) {
-		char clientname[256];
-		af = SOCKADDR_UNION_AF(&client->addr);
-		void *ipdata = SOCKADDR_UNION_ADDRESS(&client->addr);
-		inet_ntop(af, ipdata, clientname, sizeof clientname);
-		dolog("client[%d] %s: connected to %s:%d\n", client->fd, clientname, namebuf, port);
-	}
+	char clientname[256];
+	af = SOCKADDR_UNION_AF(&client->addr);
+	void *ipdata = SOCKADDR_UNION_ADDRESS(&client->addr);
+	inet_ntop(af, ipdata, clientname, sizeof clientname);
+	if (verbose)
+		fprintf(stderr, "client[%d] %s: connected to %s:%d\n", client->fd, clientname, namebuf, port);
 	return fd;
 }
 
@@ -204,12 +155,11 @@ static enum authmethod check_auth_method(unsigned char *buf, size_t n, struct cl
 			else if(auth_ips) {
 				size_t i;
 				int authed = 0;
-				pthread_mutex_lock(&auth_ips_mutex);
+				const std::lock_guard<std::mutex> lock(auth_ips_mutex);
 				for(i=0;i<sblist_getsize(auth_ips);i++) {
-					if((authed = is_authed(&client->addr, sblist_get(auth_ips, i))))
+					if((authed = is_authed(&client->addr, reinterpret_cast<sockaddr_union*>(sblist_get(auth_ips, i)))))
 						break;
 				}
-				pthread_mutex_unlock(&auth_ips_mutex);
 				if(authed) return AM_NO_AUTH;
 			}
 		} else if(buf[idx] == AM_USERNAME) {
@@ -222,23 +172,22 @@ static enum authmethod check_auth_method(unsigned char *buf, size_t n, struct cl
 }
 
 static void add_auth_ip(struct client*client) {
-	pthread_mutex_lock(&auth_ips_mutex);
+	const std::lock_guard<std::mutex> lock(auth_ips_mutex);
 	sblist_add(auth_ips, &client->addr);
-	pthread_mutex_unlock(&auth_ips_mutex);
 }
 
 static void send_auth_response(int fd, int version, enum authmethod meth) {
 	unsigned char buf[2];
 	buf[0] = version;
 	buf[1] = meth;
-	write(fd, buf, 2);
+	send(fd, reinterpret_cast<const char *>(buf), 2, 0);
 }
 
 static void send_error(int fd, enum errorcode ec) {
 	/* position 4 contains ATYP, the address type, which is the same as used in the connect
 	   request. we're lazy and return always IPV4 address type in errors. */
 	char buf[10] = { 5, ec, 0, 1 /*AT_IPV4*/, 0,0,0,0, 0,0 };
-	write(fd, buf, 10);
+	send(fd, reinterpret_cast<const char*>(buf), 10, 0);
 }
 
 static void copyloop(int fd1, int fd2) {
@@ -254,7 +203,9 @@ static void copyloop(int fd1, int fd2) {
 		/* inactive connections are reaped after 15 min to free resources.
 		   usually programs send keep-alive packets so this should only happen
 		   when a connection is really unused. */
-		struct timeval timeout = {.tv_sec = 60*15, .tv_usec = 0};
+		struct timeval timeout;
+		timeout.tv_sec = 60 * 15;
+		timeout.tv_usec = 0;
 		switch(select(maxfd+1, &fds, 0, 0, &timeout)) {
 			case 0:
 				send_error(fd1, EC_TTL_EXPIRED);
@@ -267,10 +218,10 @@ static void copyloop(int fd1, int fd2) {
 		int infd = FD_ISSET(fd1, &fds) ? fd1 : fd2;
 		int outfd = infd == fd2 ? fd1 : fd2;
 		char buf[1024];
-		ssize_t sent = 0, n = read(infd, buf, sizeof buf);
+		ssize_t sent = 0, n = recv(infd, buf, sizeof(sizeof buf), 0);
 		if(n <= 0) return;
 		while(sent < n) {
-			ssize_t m = write(outfd, buf+sent, n-sent);
+			auto m{ send(outfd, reinterpret_cast<const char*>(buf + sent), n - sent, 0) };
 			if(m < 0) return;
 			sent += m;
 		}
@@ -295,39 +246,39 @@ static enum errorcode check_credentials(unsigned char* buf, size_t n) {
 }
 
 static void* clientthread(void *data) {
-	struct thread *t = data;
-	t->state = SS_1_CONNECTED;
+	struct context_t *context = reinterpret_cast<struct context_t*>(data);
+	context->state = SS_1_CONNECTED;
 	unsigned char buf[1024];
 	ssize_t n;
 	int ret;
 	int remotefd = -1;
 	enum authmethod am;
-	while((n = recv(t->client.fd, buf, sizeof buf, 0)) > 0) {
-		switch(t->state) {
+	while((n = recv(context->client.fd, reinterpret_cast<char*>(buf), sizeof buf, 0)) > 0) {
+		switch(context->state) {
 			case SS_1_CONNECTED:
-				am = check_auth_method(buf, n, &t->client);
-				if(am == AM_NO_AUTH) t->state = SS_3_AUTHED;
-				else if (am == AM_USERNAME) t->state = SS_2_NEED_AUTH;
-				send_auth_response(t->client.fd, 5, am);
+				am = check_auth_method(buf, n, &context->client);
+				if(am == AM_NO_AUTH) context->state = SS_3_AUTHED;
+				else if (am == AM_USERNAME) context->state = SS_2_NEED_AUTH;
+				send_auth_response(context->client.fd, 5, am);
 				if(am == AM_INVALID) goto breakloop;
 				break;
 			case SS_2_NEED_AUTH:
 				ret = check_credentials(buf, n);
-				send_auth_response(t->client.fd, 1, ret);
+				send_auth_response(context->client.fd, 1, static_cast<authmethod>(ret));
 				if(ret != EC_SUCCESS)
 					goto breakloop;
-				t->state = SS_3_AUTHED;
-				if(auth_ips) add_auth_ip(&t->client);
+				context->state = SS_3_AUTHED;
+				if(auth_ips) add_auth_ip(&context->client);
 				break;
 			case SS_3_AUTHED:
-				ret = connect_socks_target(buf, n, &t->client);
+				ret = connect_socks_target(buf, n, &context->client);
 				if(ret < 0) {
-					send_error(t->client.fd, ret*-1);
+					send_error(context->client.fd, static_cast<errorcode>(ret*-1));
 					goto breakloop;
 				}
 				remotefd = ret;
-				send_error(t->client.fd, EC_SUCCESS);
-				copyloop(t->client.fd, remotefd);
+				send_error(context->client.fd, EC_SUCCESS);
+				copyloop(context->client.fd, remotefd);
 				goto breakloop;
 
 		}
@@ -335,38 +286,21 @@ static void* clientthread(void *data) {
 breakloop:
 
 	if(remotefd != -1)
-		close(remotefd);
+		closesocket_(remotefd);
 
-	close(t->client.fd);
-	t->done = 1;
-
+	closesocket_(context->client.fd);
+	free(context);
 	return 0;
 }
 
-static void collect(sblist *threads) {
-	size_t i;
-	for(i=0;i<sblist_getsize(threads);) {
-		struct thread* thread = *((struct thread**)sblist_get(threads, i));
-		if(thread->done) {
-			pthread_join(thread->pt, 0);
-			sblist_delete(threads, i);
-			free(thread);
-		} else
-			i++;
-	}
-}
-
 static int usage(void) {
-	dprintf(2,
+	fprintf(stderr,
 		"MicroSocks SOCKS5 Server\n"
 		"------------------------\n"
 		"usage: microsocks -1 -i listenip -p port -u user -P password -b bindaddr\n"
 		"all arguments are optional.\n"
 		"by default listenip is 0.0.0.0 and port 1080.\n\n"
 		"option -b specifies which ip outgoing connections are bound to\n"
-		"option -1 activates auth_once mode: once a specific ip address\n"
-		"authed successfully with user/pass, it is added to a whitelist\n"
-		"and may use the proxy without auth.\n"
 		"this is handy for programs like firefox that don't support\n"
 		"user/pass auth. for it to work you'd basically make one connection\n"
 		"with another program that supports it, and then you can use firefox too.\n"
@@ -381,78 +315,89 @@ static void zero_arg(char *s) {
 }
 
 int main(int argc, char** argv) {
-	int ch;
-	const char *listenip = "0.0.0.0";
-	unsigned port = 1080;
-	while((ch = getopt(argc, argv, ":1b:i:p:u:P:")) != -1) {
-		switch(ch) {
-			case '1':
-				auth_ips = sblist_new(sizeof(union sockaddr_union), 8);
-				break;
-			case 'b':
-				resolve_sa(optarg, 0, &bind_addr);
-				break;
-			case 'u':
-				auth_user = strdup(optarg);
-				zero_arg(optarg);
-				break;
-			case 'P':
-				auth_pass = strdup(optarg);
-				zero_arg(optarg);
-				break;
-			case 'i':
-				listenip = optarg;
-				break;
-			case 'p':
-				port = atoi(optarg);
-				break;
-			case ':':
-				dprintf(2, "error: option -%c requires an operand\n", optopt);
-				/* fall through */
-			case '?':
-				return usage();
-		}
+	cxxopts::Options options("MicroSocks", "SOCKS5 Server");
+	options.add_options()
+		("1,auth-once", "Whitelist an ip address after authenticating to not requre a password on subsequent connections")
+		("b,bind-address", "Int param", cxxopts::value<std::string>()->default_value(""))
+		("h,help", "Print this message")
+		("l,listen-ip", "Ip address to listen on", cxxopts::value<std::string>()->default_value("0.0.0.0"))
+		("p,port", "Port to listen on", cxxopts::value<std::string>()->default_value("1080"))
+		("u,user", "The username to use for authentication", cxxopts::value<std::string>())
+		("v,verbose", "Verbose output")
+		("P,password", "The password to use for authentication", cxxopts::value<std::string>())
+	;
+	options.allow_unrecognised_options();
+	auto result{ options.parse(argc, argv) };
+
+	if (result.count("help")) {
+		fprintf(stderr, "%s\n", options.help().c_str());
+		exit(0);
 	}
-	if((auth_user && !auth_pass) || (!auth_user && auth_pass)) {
-		dprintf(2, "error: user and pass must be used together\n");
+
+	bool auth{ result["1"].count() != 0 };
+	bool user{ result["u"].count() != 0 };
+	bool password{ result["p"].count() != 0 };
+
+	if (user ^ password) {
+		fprintf(stderr, "error: user and pass must be used together\n");
 		return 1;
 	}
-	if(auth_ips && !auth_pass) {
-		dprintf(2, "error: auth-once option must be used together with user/pass\n");
+
+	if (auth && !password) {
+		fprintf(stderr, "error: auth-once option must be used together with user/pass\n");
 		return 1;
 	}
+
+	if (result.count("1"))
+		auth_ips = sblist_new(sizeof(union sockaddr_union), 8);
+
+	if (result.count("b"))
+		resolve_sa(result["b"].as<std::string>().c_str(), 0, &bind_addr);
+
+	if (user)
+		auth_user = strdup(result["u"].as<std::string>().c_str());
+
+	if (password)
+		auth_pass = strdup(result["P"].as<std::string>().c_str());
+
+	listenip = strdup(result["l"].as<std::string>().c_str());
+
+	port = atoi(result["p"].as<std::string>().c_str());
+
+	verbose = result.count("v") != 0;
+
+	for (size_t i = 1; i < argc; i++)
+		zero_arg(argv[i]);
+
+#ifdef WINDOWS
+	WSADATA wsaData = { 0 };
+	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
+		return false;
+#else
 	signal(SIGPIPE, SIG_IGN);
+#endif
+
 	struct server s;
-	sblist *threads = sblist_new(sizeof (struct thread*), 8);
-	if(server_setup(&s, listenip, port)) {
+	std::vector<std::unique_ptr<std::thread>> threads;
+	if (server_setup(&s, listenip, port)) {
 		perror("server_setup");
 		return 1;
 	}
 	server = &s;
 
-	while(1) {
-		collect(threads);
+	while (1) {
+		// collect
+		std::for_each(threads.begin(), threads.end(), [](std::unique_ptr<std::thread>& thread) { thread->join(); });
+		threads.erase(threads.begin(), threads.end());
+
 		struct client c;
-		struct thread *curr = malloc(sizeof (struct thread));
-		if(!curr) goto oom;
-		curr->done = 0;
+		auto curr{ reinterpret_cast<struct context_t*>(malloc(sizeof(struct context_t))) };
 		if(server_waitclient(&s, &c)) continue;
 		curr->client = c;
-		if(!sblist_add(threads, &curr)) {
-			close(curr->client.fd);
-			free(curr);
-			oom:
-			dolog("rejecting connection due to OOM\n");
-			usleep(16); /* prevent 100% CPU usage in OOM situation */
-			continue;
-		}
-		pthread_attr_t *a = 0, attr;
-		if(pthread_attr_init(&attr) == 0) {
-			a = &attr;
-			pthread_attr_setstacksize(a, THREAD_STACK_SIZE);
-		}
-		if(pthread_create(&curr->pt, a, clientthread, curr) != 0)
-			dolog("pthread_create failed. OOM?\n");
-		if(a) pthread_attr_destroy(&attr);
+		threads.emplace_back(std::make_unique<std::thread>(clientthread, curr));
 	}
+
+#ifdef WINDOWS
+	WSACleanup();
+#endif
 }

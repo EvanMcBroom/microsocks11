@@ -1,4 +1,4 @@
-#include "sblist.h"
+#include <sblist.h>
 #include <string.h>
 
 void sblist_delete(sblist* l, size_t item) {
