@@ -293,21 +293,6 @@ breakloop:
 	return 0;
 }
 
-static int usage(void) {
-	fprintf(stderr,
-		"MicroSocks SOCKS5 Server\n"
-		"------------------------\n"
-		"usage: microsocks -1 -i listenip -p port -u user -P password -b bindaddr\n"
-		"all arguments are optional.\n"
-		"by default listenip is 0.0.0.0 and port 1080.\n\n"
-		"option -b specifies which ip outgoing connections are bound to\n"
-		"this is handy for programs like firefox that don't support\n"
-		"user/pass auth. for it to work you'd basically make one connection\n"
-		"with another program that supports it, and then you can use firefox too.\n"
-	);
-	return 1;
-}
-
 /* prevent username and password from showing up in top. */
 static void zero_arg(char *s) {
 	size_t i, l = strlen(s);
