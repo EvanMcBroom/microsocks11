@@ -1,11 +1,20 @@
 cmake_minimum_required(VERSION 3.14.0)
-project(microsocks11 C CXX)
-set(TARGET microsocks)
-add_executable(${TARGET})
+project(microsocks11 CXX)
+set(SERVER microsocks)
+find_package(cxxopts CONFIG REQUIRED)
+
+add_executable(${SERVER})
+set_target_properties(${SERVER} PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED YES
+)
+
+target_link_libraries(${SERVER} PRIVATE cxxopts::cxxopts)
+
 add_subdirectory(include)
-target_sources(${TARGET} PRIVATE
-    sblist.c
-    sblist_delete.c
-    server.c
-    sockssrv.c
+target_sources(${SERVER} PRIVATE
+    sblist.cpp
+    sblist_delete.cpp
+    server.cpp
+    sockssrv.cpp
 )

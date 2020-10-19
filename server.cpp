@@ -1,14 +1,14 @@
-#include "server.h"
+#include <cstdint>
+#include <server.h>
+#include <sockets.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 int resolve(const char *host, unsigned short port, struct addrinfo** addr) {
-	struct addrinfo hints = {
-		.ai_family = AF_UNSPEC,
-		.ai_socktype = SOCK_STREAM,
-		.ai_flags = AI_PASSIVE,
-	};
+	struct addrinfo hints = { 0 };
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
 	char port_buf[8];
 	snprintf(port_buf, sizeof port_buf, "%u", port);
 	return getaddrinfo(host, port_buf, &hints, addr);
@@ -33,7 +33,7 @@ int bindtoip(int fd, union sockaddr_union *bindaddr) {
 
 int server_waitclient(struct server *server, struct client* client) {
 	socklen_t clen = sizeof client->addr;
-	return ((client->fd = accept(server->fd, (void*)&client->addr, &clen)) == -1)*-1;
+	return ((client->fd = accept(server->fd, reinterpret_cast<sockaddr*>(&client->addr), &clen)) == -1)*-1;
 }
 
 int server_setup(struct server *server, const char* listenip, unsigned short port) {
@@ -44,10 +44,10 @@ int server_setup(struct server *server, const char* listenip, unsigned short por
 	for(p = ainfo; p; p = p->ai_next) {
 		if((listenfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0)
 			continue;
-		int yes = 1;
+		optval_t yes = 1;
 		setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 		if(bind(listenfd, p->ai_addr, p->ai_addrlen) < 0) {
-			close(listenfd);
+			closesocket_(listenfd);
 			listenfd = -1;
 			continue;
 		}
@@ -56,7 +56,7 @@ int server_setup(struct server *server, const char* listenip, unsigned short por
 	freeaddrinfo(ainfo);
 	if(listenfd < 0) return -2;
 	if(listen(listenfd, SOMAXCONN) < 0) {
-		close(listenfd);
+		closesocket_(listenfd);
 		return -3;
 	}
 	server->fd = listenfd;

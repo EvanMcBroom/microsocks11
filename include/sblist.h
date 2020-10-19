@@ -1,15 +1,15 @@
-#ifndef SBLIST_H
-#define SBLIST_H
+#pragma once
 
 /* this file is part of libulz, as of commit 8ab361a27743aaf025323ee43b8b8876dc054fdd
    modified for direct inclusion in microsocks. */
-
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include <cstdint>
 #include <stddef.h>
+
 /*
  * simple buffer list.
  * 
@@ -85,8 +85,4 @@ size_t sblist_insert_sorted(sblist* l, void* o, int (*compar)(const void *, cons
 
 #ifdef __cplusplus
 }
-#endif
-
-#pragma RcB2 DEP "sblist.c" "sblist_delete.c"
-
 #endif
