@@ -28,6 +28,13 @@ cmake --build .
 
 By default CMake will build both the `microsocks` utility and the `socks5` static library it uses. The `socks5` library has a simple api that can be used to build other utilities.
 
+You can set the `BUILD_STATIC` flag when generating the build system files to link against the static version of the runtime library. This will build the `microsocks` utility as a standalone program that can be ran on other hosts.
+
+```
+cmake .. -DBUILD_STATIC=TRUE
+cmake --build .
+```
+
 ## Running
 
 MicroSocks11 is simple to use and can be ran directly with default arguments.
