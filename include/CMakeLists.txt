@@ -1,6 +1,6 @@
-target_sources(${SERVER} PRIVATE
+target_sources(${LIBRARY} PUBLIC
     server.h
     sockets.h
     socks5.h
 )
-target_include_directories(${SERVER} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(${LIBRARY} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

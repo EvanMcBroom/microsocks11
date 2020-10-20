@@ -2,10 +2,10 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
 
-MicroSocks11 is based on the [microsocks](https://github.com/rofl0r/microsocks) project and uses CMake and C++11 for cross-platform support.
+MicroSocks11 is based on the [microsocks](https://github.com/rofl0r/microsocks) project and uses CMake and C++11 for cross-platform support. MicroSocks11 supports IPv4, IPv6, and DNS.
 
-This project is under an [MIT license](https://github.com/EvanMcBroom/microsocks11/blob/master/LICENSE.txt).
-Any sections of code that are included from the original project are also under an [MIT license](https://github.com/rofl0r/microsocks/blob/master/COPYING) and copyrighted to [rofl0r](https://github.com/rofl0r/).
+This project is released under an [MIT license](https://github.com/EvanMcBroom/microsocks11/blob/master/LICENSE.txt).
+Any sections of code that are included from the original project are also released under an [MIT license](https://github.com/rofl0r/microsocks/blob/master/COPYING) and copyrighted to [rofl0r](https://github.com/rofl0r/).
 
 ## Building
 
@@ -23,8 +23,10 @@ cd microsocks11
 mkdir builds
 cd builds
 cmake .. -DCMAKE_TOOLCHAIN_FILE=$VCPKG_PATH/scripts/buildsystems/vcpkg.cmake
-cmake --build . --target microsocks
+cmake --build .
 ```
+
+By default CMake will build both the `microsocks` utility and the `socks5` static library it uses. The `socks5` library has a simple api that can be used to build other utilities.
 
 ## Running
 
