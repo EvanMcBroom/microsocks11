@@ -3,7 +3,6 @@
 #pragma once
 
 #include <mutex>
-#include <sblist.h>
 #include <server.h>
 
 enum class AuthMethod {
