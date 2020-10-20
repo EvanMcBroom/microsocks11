@@ -13,8 +13,7 @@ target_link_libraries(${SERVER} PRIVATE cxxopts::cxxopts)
 
 add_subdirectory(include)
 target_sources(${SERVER} PRIVATE
-    sblist.cpp
-    sblist_delete.cpp
+    main.cpp
     server.cpp
-    sockssrv.cpp
+    socks5.cpp
 )

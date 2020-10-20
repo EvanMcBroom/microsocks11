@@ -1,37 +1,56 @@
+// Copyright (C) 2020 Evan McBroom
+
 #pragma once
+
 #include <sockets.h>
 
-union sockaddr_union {
+union sockAddress {
 	struct sockaddr_in  v4;
 	struct sockaddr_in6 v6;
 };
 
-#define SOCKADDR_UNION_AF(PTR) (PTR)->v4.sin_family
-
-#define SOCKADDR_UNION_LENGTH(PTR) ( \
-	( SOCKADDR_UNION_AF(PTR) == AF_INET  ) ? sizeof((PTR)->v4) : ( \
-	( SOCKADDR_UNION_AF(PTR) == AF_INET6 ) ? sizeof((PTR)->v6) : 0 ) )
-
-#define SOCKADDR_UNION_ADDRESS(PTR) ( \
-	( SOCKADDR_UNION_AF(PTR) == AF_INET  ) ? (void*) &(PTR)->v4.sin_addr  : ( \
-	( SOCKADDR_UNION_AF(PTR) == AF_INET6 ) ? (void*) &(PTR)->v6.sin6_addr : (void*) 0 ) )
-
-#define SOCKADDR_UNION_PORT(PTR) ( \
-	( SOCKADDR_UNION_AF(PTR) == AF_INET  ) ? (PTR)->v4.sin_port  : ( \
-	( SOCKADDR_UNION_AF(PTR) == AF_INET6 ) ? (PTR)->v6.sin6_port : 0 ) )
-
-struct client {
-	union sockaddr_union addr;
-	int fd;
+union internetAddress {
+	struct in_addr  v4;
+	struct in6_addr v6;
 };
 
-struct server {
-	int fd;
+constexpr auto family(sockAddress* address) {
+	return &address->v4.sin_family;
+}
+
+constexpr auto length(sockAddress* address) {
+	return (*family(address) == AF_INET) ?
+		sizeof(address->v4) : (*family(address) == AF_INET6) ?
+			sizeof(address->v6) : 0;
+}
+
+constexpr auto address(sockAddress* address) {
+	return (*family(address) == AF_INET) ?
+		reinterpret_cast<internetAddress*>(&address->v4.sin_addr) : (*family(address) == AF_INET6) ?
+			reinterpret_cast<internetAddress*>(&address->v6.sin6_addr) : nullptr;
+}
+
+constexpr auto port(sockAddress* address) {
+	return (*family(address) == AF_INET) ?
+		address->v4.sin_port : (*family(address) == AF_INET6) ?
+			address->v6.sin6_port : 0;
+}
+
+int bindToSockAddress(Socket socket_, sockAddress* bindaddr);
+int resolve(const char* host, unsigned short port, struct addrinfo** addr);
+int resolveSockAddress(const char* host, unsigned short port, sockAddress* res);
+
+class Server {
+public:
+	struct Client {
+		union sockAddress address;
+		Socket socket_;
+		bool valid;
+	};
+
+	bool start(const char* host, unsigned short port);
+	Client waitForClient();
+
+private:
+	Socket socket_;
 };
-
-int resolve(const char *host, unsigned short port, struct addrinfo** addr);
-int resolve_sa(const char *host, unsigned short port, union sockaddr_union *res);
-int bindtoip(int fd, union sockaddr_union *bindaddr);
-
-int server_waitclient(struct server *server, struct client* client);
-int server_setup(struct server *server, const char* listenip, unsigned short port);
