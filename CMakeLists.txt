@@ -20,13 +20,16 @@ target_sources(${SERVER} PRIVATE main.cpp)
 
 add_subdirectory(include)
 
+if (NOT MSVC)
+	target_link_libraries(${LIBRARY} pthread)
+endif()
+
 if(BUILD_STATIC)
     if (MSVC)
         set(CMAKE_CXX_FLAGS_RELEASE "/MT")
         set(CMAKE_CXX_FLAGS_DEBUG "/MTd")
         target_link_options(${SERVER} PRIVATE /INCREMENTAL:NO /NODEFAULTLIB:MSVCRT)
     else ()
-        set(CMAKE_EXE_LINKER_FLAGS " -static")
-        target_link_libraries(${SERVER} -static -static-libgcc -static-libstdc++)
+	target_link_options(${SERVER} PRIVATE -static)
     endif()
 endif()
