@@ -1,6 +1,7 @@
 # MicroSocks11 - A cross-platform SOCKS5 server.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
+[![Travis](https://img.shields.io/travis/EvanMcBroom/microsocks11?logo=Travis)](https://travis-ci.org/EvanMcBroom/microsocks11)
 
 MicroSocks11 is a SOCKS5 library and server based on the [microsocks](https://github.com/rofl0r/microsocks) project that use CMake and C++11 for cross-platform support.
 MicroSocks11 supports IPv4, IPv6, and DNS.
@@ -35,6 +36,8 @@ You can set the `BUILD_STATIC` flag when generating the build system files to li
 cmake .. -DBUILD_STATIC=TRUE
 cmake --build .
 ```
+
+> :pencil2: On Linux you will need to install `clang` and `libc++` for static builds because `glibc` can not statically link the `getaddrinfo` symbol ([reference](https://stackoverflow.com/a/3087067/11039217)). Please refer to the Travis CI file for how to install `clang` and `libc++`.
 
 ## Running
 
