@@ -1,0 +1,25 @@
+branches:
+  only:
+    - master
+
+environment:
+  matrix:
+  - platform: x64
+    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
+    BUILD_SHARED_LIBS: ON
+
+install:
+  - pushd C:\Tools\vcpkg
+  - git pull
+  - .\bootstrap-vcpkg.bat
+  - vcpkg install cxxopts:x64-windows
+  - vcpkg integrate install
+  - popd
+
+build_script:
+  - mkdir builds
+  - cd builds
+  - cmake .. -DCMAKE_TOOLCHAIN_FILE=c:/tools/vcpkg/scripts/buildsystems/vcpkg.cmake
+  - cmake --build .
+
+deploy: off
