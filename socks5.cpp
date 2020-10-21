@@ -230,7 +230,7 @@ namespace {
 	void sendError(int socket, ErrorCode errorCode) {
 		/* position 4 contains ATYP, the address type, which is the same as used in the connect
 		   request. we're lazy and return always IPV4 address type in errors. */
-		char buf[10] = { 5, static_cast<int>(errorCode), 0, 1 /*AT_IPV4*/, 0,0,0,0, 0,0 };
+		char buf[10] = { 5, static_cast<char>(errorCode), 0, 1 /*AT_IPV4*/, 0,0,0,0, 0,0 };
 		send(socket, reinterpret_cast<const char*>(buf), 10, 0);
 	}
 	

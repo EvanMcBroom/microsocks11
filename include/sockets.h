@@ -15,13 +15,14 @@ using optval_t = const char;
 using ssize_t = size_t;
 const auto closesocket_ = closesocket;
 
-#elif
+#else
 
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 using optval_t = int;
 const auto closesocket_ = close;

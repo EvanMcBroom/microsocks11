@@ -4,6 +4,7 @@
 
 #include <mutex>
 #include <server.h>
+#include <vector>
 
 enum class AuthMethod {
 	NO_AUTH = 0,
