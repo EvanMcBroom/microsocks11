@@ -1,6 +1,6 @@
 # MicroSocks11 - A cross-platform SOCKS5 server.
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE.txt)
 [![AppVeyor](https://img.shields.io/appveyor/build/EvanMcBroom/microsocks11?logo=AppVeyor)](https://ci.appveyor.com/project/EvanMcBroom/microsocks11/)
 [![Travis](https://img.shields.io/travis/EvanMcBroom/microsocks11?logo=Travis)](https://travis-ci.org/EvanMcBroom/microsocks11)
 
