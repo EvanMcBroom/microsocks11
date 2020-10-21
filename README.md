@@ -1,6 +1,7 @@
 # MicroSocks11 - A cross-platform SOCKS5 server.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE)
+[![AppVeyor](https://img.shields.io/appveyor/build/EvanMcBroom/microsocks11?logo=AppVeyor)](https://ci.appveyor.com/project/EvanMcBroom/microsocks11/)
 [![Travis](https://img.shields.io/travis/EvanMcBroom/microsocks11?logo=Travis)](https://travis-ci.org/EvanMcBroom/microsocks11)
 
 MicroSocks11 is a SOCKS5 library and server based on the [microsocks](https://github.com/rofl0r/microsocks) project that use CMake and C++11 for cross-platform support.
