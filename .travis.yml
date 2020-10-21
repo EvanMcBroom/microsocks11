@@ -1,0 +1,64 @@
+language: cpp
+
+branches:
+  only:
+    - master
+
+matrix:
+  include:
+    - os: linux
+      dist: focal
+      sudo: required
+      env:
+        - VCPKG_TRIPLET=x64-linux
+        - DEPS_DIR=/opt
+
+install:
+  - |
+    # packages
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y build-essential curl git libssl-dev wget
+    # cmake
+    pushd /tmp
+    wget https://github.com/Kitware/CMake/releases/download/v3.18.4/cmake-3.18.4.tar.gz
+    tar zxvf cmake-3.18.4.tar.gz
+    pushd cmake-3.18.4
+    ./bootstrap
+    make
+    make install
+    ln -s /usr/local/bin/cmake /usr/bin/
+    popd && popd
+    # vcpkg
+    pushd ${DEPS_DIR}
+    git clone https://github.com/Microsoft/vcpkg.git
+    pushd vcpkg
+    ./bootstrap-vcpkg.sh
+    ./vcpkg install cxxopts:${VCPKG_TRIPLET}
+    popd && popd
+    # clang and libc++ - only used for static runtime builds (original install guide: https://stackoverflow.com/a/43769803/11039217)
+    curl -q https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add
+    cat > /etc/apt/sources.list.d/llvm-repos.list <<EOF
+    deb http://apt.llvm.org/focal/ llvm-toolchain-focal main
+    deb-src http://apt.llvm.org/focal/ llvm-toolchain-focal main
+    deb http://apt.llvm.org/focal/ llvm-toolchain-focal-9 main
+    deb-src http://apt.llvm.org/focal/ llvm-toolchain-focal-9 main
+    EOF
+    apt-get update && apt-get install -y clang-9 clang-9-doc clang-format-9 libclang-9-dev libclang-common-9-dev libclang1-9 libfuzzer-9-dev liblldb-9 liblldb-9-dev libllvm9 lldb-9 lld-9 libc++-9-dev libc++abi-9-dev
+    update-alternatives --install /usr/bin/cc cc /usr/bin/clang-9 100
+    update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-9  100
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-9  100
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-9  100
+    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.lld-9  10
+    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 20
+    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.bfd 30
+    ld --version && echo 3 | update-alternatives --config ld && ld --version
+cache:
+  directories:
+    - ${DEPS_DIR}/vcpkg/installed
+
+script:
+  - |
+    mkdir -p build && pushd build
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=${DEPS_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake
+    cmake --build .
+    popd
