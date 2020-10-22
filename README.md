@@ -3,8 +3,10 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)](LICENSE.txt)
 [![AppVeyor](https://img.shields.io/appveyor/build/EvanMcBroom/microsocks11?logo=AppVeyor)](https://ci.appveyor.com/project/EvanMcBroom/microsocks11/)
 [![Travis](https://img.shields.io/travis/EvanMcBroom/microsocks11?logo=Travis)](https://travis-ci.org/EvanMcBroom/microsocks11)
+[![GitHub All Releases](https://img.shields.io/github/downloads/EvanMcBroom/microsocks11/total?color=yellow)](https://github.com/EvanMcBroom/microsocks11/releases)
+[![Docker Pulls](https://img.shields.io/docker/pulls/evanmcbroom/microsocks11?color=yellow)](https://hub.docker.com/r/evanmcbroom/microsocks11)
 
-MicroSocks11 is a SOCKS5 library and server based on the [microsocks](https://github.com/rofl0r/microsocks) project that use CMake and C++11 for cross-platform support.
+MicroSocks11 is a SOCKS5 library and server based on the [microsocks](https://github.com/rofl0r/microsocks) project that uses CMake and C++11 for cross-platform support.
 MicroSocks11 supports IPv4, IPv6, and DNS.
 
 This project is released under an [MIT license](https://github.com/EvanMcBroom/microsocks11/blob/master/LICENSE.txt).
@@ -21,7 +23,7 @@ vcpkg install cxxopts
 MicroSocks11 uses [CMake](https://cmake.org/) to generate and run the build system files for your platform.
 
 ```
-git clone git@github.com:EvanMcBroom/microsocks11.git
+git clone https://github.com/EvanMcBroom/microsocks11.git
 cd microsocks11
 mkdir builds
 cd builds
@@ -67,4 +69,24 @@ You can use curl to test if the proxy is running.
 
 ```
 curl --socks5-hostname localhost:1080 icanhazip.com
+```
+
+## Docker Container
+
+MicroSocks11 can also be built and ran as a docker container.
+You can either build the image yourself or pull the image from [dockerhub](https://hub.docker.com/u/evanmcbroom).
+
+```
+# build option 1 - pull the container from dockerhub
+docker pull evanmcbroom/microsocks11
+
+# build option 2 - build the container yourself
+git clone https://github.com/EvanMcBroom/microsocks11.git
+docker build microsocks11 --tag evanmcbroom/microsocks11:latest
+
+# run example 1 - run the proxy on 0.0.0.0:1080 in the background
+docker run --rm -d --net=host --name=proxy evanmcbroom/microsocks11
+
+# run example 2 - run the proxy with custom arguments
+docker run --rm --net=host --name=proxy evanmcbroom/microsocks11 --help
 ```
