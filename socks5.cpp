@@ -42,6 +42,7 @@ bool Socks5Server::start(const char* host, unsigned short port) {
 			handleRequest.detach();
 		}
 	} while (true);
+	server.stop();
 
 #ifdef WINDOWS
 	WSACleanup();

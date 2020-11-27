@@ -66,6 +66,10 @@ bool Server::start(const char* host, unsigned short port) {
 	return true;
 }
 
+void Server::stop() {
+	closesocket_(socket_);
+}
+
 std::pair<ErrorCode, size_t> Server::waitForClients(size_t seconds) {
 	fd_set readySockets{ 0 }, clientSockets{ 0 };
 	FD_SET(socket_, &clientSockets);
