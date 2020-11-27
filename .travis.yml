@@ -1,15 +1,14 @@
 language: cpp
+os: linux
+dist: focal
 
 branches:
   only:
     - master
 
-matrix:
+jobs:
   include:
-    - os: linux
-      dist: focal
-      sudo: required
-      env:
+    - env:
         - VCPKG_TRIPLET=x64-linux
         - DEPS_DIR=/opt
 
@@ -17,7 +16,7 @@ install:
   - |
     # packages
     export DEBIAN_FRONTEND=noninteractive
-    sudo apt-get update && sudo apt-get install -y build-essential curl git libssl-dev wget
+    apt-get update && apt-get install -y build-essential curl git libssl-dev wget
     # cmake
     pushd /tmp
     wget https://github.com/Kitware/CMake/releases/download/v3.18.4/cmake-3.18.4.tar.gz
@@ -25,32 +24,32 @@ install:
     pushd cmake-3.18.4
     ./bootstrap
     make
-    sudo make install
-    sudo ln -s /usr/local/bin/cmake /usr/bin/
+    make install
+    ln -s /usr/local/bin/cmake /usr/bin/
     popd && popd
     # vcpkg
     pushd ${DEPS_DIR}
     rm -rf vcpkg
     git clone https://github.com/Microsoft/vcpkg.git
     pushd vcpkg
-    sudo ./bootstrap-vcpkg.sh
-    sudo ./vcpkg install cxxopts:${VCPKG_TRIPLET}
+    ./bootstrap-vcpkg.sh
+    ./vcpkg install cxxopts:${VCPKG_TRIPLET}
     popd && popd
     # clang and libc++ - only used for static runtime builds (original install guide: https://stackoverflow.com/a/43769803/11039217)
-    sudo sh -c 'curl -q https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add'
-    sudo sh -c 'echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal main" >> /etc/apt/sources.list.d/llvm-repos.list'
-    sudo sh -c 'echo "deb-src http://apt.llvm.org/focal/ llvm-toolchain-focal main" >> /etc/apt/sources.list.d/llvm-repos.list'
-    sudo sh -c 'echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-9 main" >> /etc/apt/sources.list.d/llvm-repos.list'
-    sudo sh -c 'echo "deb-src http://apt.llvm.org/focal/ llvm-toolchain-focal-9 main" >> /etc/apt/sources.list.d/llvm-repos.list'
-    apt-get update && sudo apt-get install -y clang-9 clang-9-doc clang-format-9 libclang-9-dev libclang-common-9-dev libclang1-9 libfuzzer-9-dev liblldb-9 liblldb-9-dev libllvm9 lldb-9 lld-9 libc++-9-dev libc++abi-9-dev
-    sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang-9 100
-    sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-9  100
-    sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-9  100
-    sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-9  100
-    sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.lld-9  10
-    sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 20
-    sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.bfd 30
-    sudo sh -c 'echo 3 | update-alternatives --config ld'
+    sh -c 'curl -q https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add'
+    sh -c 'echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal main" >> /etc/apt/sources.list.d/llvm-repos.list'
+    sh -c 'echo "deb-src http://apt.llvm.org/focal/ llvm-toolchain-focal main" >> /etc/apt/sources.list.d/llvm-repos.list'
+    sh -c 'echo "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-9 main" >> /etc/apt/sources.list.d/llvm-repos.list'
+    sh -c 'echo "deb-src http://apt.llvm.org/focal/ llvm-toolchain-focal-9 main" >> /etc/apt/sources.list.d/llvm-repos.list'
+    apt-get update && apt-get install -y clang-9 clang-9-doc clang-format-9 libclang-9-dev libclang-common-9-dev libclang1-9 libfuzzer-9-dev liblldb-9 liblldb-9-dev libllvm9 lldb-9 lld-9 libc++-9-dev libc++abi-9-dev
+    update-alternatives --install /usr/bin/cc cc /usr/bin/clang-9 100
+    update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-9  100
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-9  100
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-9  100
+    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.lld-9  10
+    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 20
+    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.bfd 30
+    sh -c 'echo 3 | update-alternatives --config ld'
 
 script:
   - |
