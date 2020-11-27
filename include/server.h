@@ -63,6 +63,7 @@ public:
 
 	Client acceptClient();
 	bool start(const char* host, unsigned short port);
+	void stop();
 	std::pair<ErrorCode, size_t> waitForClients(size_t seconds = 5);
 
 private:
