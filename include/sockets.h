@@ -20,6 +20,7 @@ const auto ioctl_ = ioctlsocket;
 #else
 
 #include <arpa/inet.h>
+#include <cerrno>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
