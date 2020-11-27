@@ -73,7 +73,7 @@ void Server::stop() {
 std::pair<ErrorCode, size_t> Server::waitForClients(size_t seconds) {
 	fd_set readySockets{ 0 }, clientSockets{ 0 };
 	FD_SET(socket_, &clientSockets);
-	std::memcpy(&readySockets, &clientSockets, sizeof(clientSockets));
+	memcpy(&readySockets, &clientSockets, sizeof(clientSockets));
 	struct timeval timeout{ 0 };
 	timeout.tv_sec = seconds;
 	while (1) {
