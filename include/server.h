@@ -3,6 +3,19 @@
 #pragma once
 
 #include <sockets.h>
+#include <vector>
+
+enum class ErrorCode {
+	SUCCESS = 0,
+	GENERAL_FAILURE = -1,
+	NOT_ALLOWED = -2,
+	NET_UNREACHABLE = -3,
+	HOST_UNREACHABLE = -4,
+	CONN_REFUSED = -5,
+	TTL_EXPIRED = -6,
+	COMMAND_NOT_SUPPORTED = -7,
+	ADDRESSTYPE_NOT_SUPPORTED = -8,
+};
 
 union sockAddress {
 	struct sockaddr_in  v4;
@@ -48,8 +61,9 @@ public:
 		bool valid;
 	};
 
+	Client acceptClient();
 	bool start(const char* host, unsigned short port);
-	Client waitForClient();
+	std::pair<ErrorCode, size_t> waitForClients(size_t seconds = 5);
 
 private:
 	Socket socket_;

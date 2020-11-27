@@ -8,21 +8,8 @@
 
 enum class AuthMethod {
 	NO_AUTH = 0,
-	GSSAPI = 1,
 	USERNAME = 2,
 	INVALID = 0xFF
-};
-
-enum class ErrorCode {
-	SUCCESS = 0,
-	GENERAL_FAILURE = -1,
-	NOT_ALLOWED = -2,
-	NET_UNREACHABLE = -3,
-	HOST_UNREACHABLE = -4,
-	CONN_REFUSED = -5,
-	TTL_EXPIRED = -6,
-	COMMAND_NOT_SUPPORTED = -7,
-	ADDRESSTYPE_NOT_SUPPORTED = -8,
 };
 
 struct Buffer {
@@ -71,6 +58,8 @@ public:
 
 	bool start(const char* host, unsigned short port);
 
+	void stop() { stopListening = true; }
+
 private:
 	const char* username = nullptr;
 	const char* password = nullptr;
@@ -79,6 +68,7 @@ private:
 	std::vector<Socks5Server::Client> authenticatedClients;
 	sockAddress bindAddress;
 	bool verbose = false;
+	bool stopListening = false;
 
 	inline void addAuthAddress(Socks5Server::Client& client) {
 		const std::lock_guard<std::mutex> lock(authenticatedClientsMutex);

@@ -31,10 +31,16 @@ bool Socks5Server::start(const char* host, unsigned short port) {
 		return false;
 
 	do {
-		Client client{ server.waitForClient() };
-		if (!client.valid) continue;
-		std::thread handleRequest{ [this, &client] () { proxyRequest(client); } };
-		handleRequest.join();
+		auto[error, clientCount]{ server.waitForClients() };
+		if ((error == ErrorCode::TTL_EXPIRED && stopListening) || error == ErrorCode::GENERAL_FAILURE)
+			break;
+
+		while (clientCount--) {
+			Client client{ server.acceptClient() };
+			if (!client.valid) continue;
+			std::thread handleRequest{ [this, &client]() { proxyRequest(client); } };
+			handleRequest.detach();
+		}
 	} while (true);
 
 #ifdef WINDOWS
@@ -73,6 +79,7 @@ AuthMethod Socks5Server::checkAuthMethod(Buffer& buffer, Socks5Server::Client& c
 }
 
 // returns Socket on success and ErrorCode on failure
+
 ErrorCode Socks5Server::connectClient(Buffer& buffer, Socks5Server::Client& client) {
 	if (buffer.recieved < 5) return ErrorCode::GENERAL_FAILURE;
 	if (buffer.data[0] != 5) return ErrorCode::GENERAL_FAILURE;
