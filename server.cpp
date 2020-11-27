@@ -41,6 +41,8 @@ bool Server::start(const char* host, unsigned short port) {
 			continue;
 		optval_t yes = 1;
 		setsockopt(socket_, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+		size_t on{ true };
+		ioctl_(socket_, FIONBIO, reinterpret_cast<ioctlarg_t>(&on));
 		if (bind(socket_, p->ai_addr, p->ai_addrlen) < 0) {
 			closesocket_(socket_);
 			socket_ = -1;
