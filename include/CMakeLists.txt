@@ -1,4 +1,4 @@
-target_sources(${LIBRARY} PUBLIC
+target_sources(${LIBRARY} PRIVATE
     server.h
     sockets.h
     socks5.h
