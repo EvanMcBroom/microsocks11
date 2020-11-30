@@ -52,6 +52,7 @@ constexpr auto port(sockAddress* address) {
 int bindToSockAddress(Socket socket_, sockAddress* bindaddr);
 int resolve(const char* host, unsigned short port, struct addrinfo** addr);
 int resolveSockAddress(const char* host, unsigned short port, sockAddress* res);
+std::pair<ErrorCode, size_t> waitForClients(Socket socket_, size_t seconds = 15);
 
 class Server {
 public:
@@ -64,7 +65,7 @@ public:
 	Client acceptClient();
 	bool start(const char* host, unsigned short port);
 	void stop();
-	std::pair<ErrorCode, size_t> waitForClients(size_t seconds = 5);
+	std::pair<ErrorCode, size_t> waitForClients(size_t seconds = 15) { return ::waitForClients(socket_, seconds); };
 
 private:
 	Socket socket_;

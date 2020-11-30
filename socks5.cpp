@@ -1,7 +1,6 @@
 // Copyright (C) 2020 Evan McBroom
 
-#include <errno.h>
-#include <future>
+#include <cerrno>
 #include <limits.h>
 #include <memory>
 #include <server.h>
@@ -14,10 +13,11 @@
 #include <socks5.h>
 
 void Buffer::recieve() {
+	auto [error, clientCount] { waitForClients(socket_) };
 	recieved = recv(socket_, reinterpret_cast<char*>(data), sizeof(data), 0);
 }
 
-bool Socks5Server::start(const char* host, unsigned short port) {
+bool Socks5Server::start(const char* host, unsigned short port, std::unique_ptr<std::promise<int>> error) {
 #ifdef WINDOWS
 	WSADATA wsaData = { 0 };
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -27,7 +27,10 @@ bool Socks5Server::start(const char* host, unsigned short port) {
 #endif
 
 	Server server;
-	if (!server.start(host, port))
+	auto success{ server.start(host, port) };
+	if (error)
+		error->set_value(errno);
+	if (!success)
 		return false;
 
 	do {

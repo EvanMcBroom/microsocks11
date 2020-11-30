@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <future>
 #include <mutex>
 #include <server.h>
 #include <vector>
@@ -56,7 +57,7 @@ public:
 		verbose = verbose;
 	}
 
-	bool start(const char* host, unsigned short port);
+	bool start(const char* host, unsigned short port, std::unique_ptr<std::promise<int>> error = nullptr);
 
 	void stop() { stopListening = true; }
 
