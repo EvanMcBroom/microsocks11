@@ -31,6 +31,22 @@ int resolveSockAddress(const char* host, unsigned short port, sockAddress* res) 
 	return 0;
 }
 
+std::pair<ErrorCode, size_t> waitForClients(Socket socket_, size_t seconds) {
+	fd_set readySockets{ 0 }, clientSockets{ 0 };
+	FD_SET(socket_, &clientSockets);
+	memcpy(&readySockets, &clientSockets, sizeof(clientSockets));
+	struct timeval timeout { 0 };
+	timeout.tv_sec = seconds;
+	while (1) {
+		auto clientCount{ select(socket_ + 1, &readySockets, nullptr, nullptr, &timeout) };
+		if (clientCount < 0)
+			if (errno == EINTR) continue; // A signal occured during the call to select
+			else return { ErrorCode::GENERAL_FAILURE, 0 };
+		else if (clientCount == 0) return { ErrorCode::TTL_EXPIRED, 0 };
+		else return { ErrorCode::SUCCESS, clientCount };
+	}
+}
+
 Server::Client Server::acceptClient() {
 	Client client;
 	socklen_t length{ sizeof(Client::address) };
@@ -68,20 +84,4 @@ bool Server::start(const char* host, unsigned short port) {
 
 void Server::stop() {
 	closesocket_(socket_);
-}
-
-std::pair<ErrorCode, size_t> Server::waitForClients(size_t seconds) {
-	fd_set readySockets{ 0 }, clientSockets{ 0 };
-	FD_SET(socket_, &clientSockets);
-	memcpy(&readySockets, &clientSockets, sizeof(clientSockets));
-	struct timeval timeout{ 0 };
-	timeout.tv_sec = seconds;
-	while (1) {
-		auto clientCount{ select(socket_ + 1, &readySockets, nullptr, nullptr, &timeout) };
-		if (clientCount < 0)
-			if (errno == EINTR) continue; // A signal occured during the call to select
-			else return { ErrorCode::GENERAL_FAILURE, 0 };
-		else if (clientCount == 0) return { ErrorCode::TTL_EXPIRED, 0 };
-		else return { ErrorCode::SUCCESS, clientCount };
-	}
 }
