@@ -23,18 +23,10 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     git clone https://github.com/EvanMcBroom/microsocks11.git && \
     cd microsocks11 && mkdir builds && cd builds && \
     cmake .. -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake && \
-    cmake --build . && \
-    mv /opt/microsocks11/builds/microsocks /usr/bin && \
-    # cleanup
-    cd /opt && \
-    rm -rf microsocks11 && \
-    rm -rf vcpkg && \
-    cd /tmp/cmake-3.18.4 && \
-    make uninstall && \
-    cd /tmp && \
-    rm -rf cmake* && \
-    apt-get remove --purge -y build-essential curl git libssl-dev ninja-build unzip wget zip && \
-    apt-get autoremove -y && \
-    apt-get clean -y
+    cmake --build .
+
+FROM ubuntu:focal
+
+COPY --from=0 /opt/microsocks11/builds/microsocks /usr/bin
 
 ENTRYPOINT ["/usr/bin/microsocks"]
