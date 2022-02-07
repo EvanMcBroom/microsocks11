@@ -1,10 +1,7 @@
 // Copyright (C) 2020 Evan McBroom
-
 #pragma once
-
 #if defined(_WIN32) || defined(WIN32) || defined(__MINGW32__)
 #define WINDOWS
-
 #include <io.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>

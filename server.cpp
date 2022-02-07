@@ -1,5 +1,4 @@
 // Copyright (C) 2020 Evan McBroom
-
 #include <cstdint>
 #include <server.h>
 #include <sockets.h>

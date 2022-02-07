@@ -1,7 +1,5 @@
 // Copyright (C) 2020 Evan McBroom
-
 #pragma once
-
 #include <sockets.h>
 #include <vector>
 

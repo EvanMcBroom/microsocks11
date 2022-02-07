@@ -1,5 +1,4 @@
 // Copyright (C) 2020 Evan McBroom
-
 #include <cerrno>
 #include <limits.h>
 #include <memory>
@@ -12,7 +11,19 @@
 #include <stdio.h>
 #include <socks5.h>
 
-void Buffer::recieve() {
+std::pair<Socks5IoStream::ClientId, Socks5IoStream::Buffer> Socks5IoStream::read() {
+	return std::pair<Socks5IoStream::ClientId, Socks5IoStream::Buffer>{};
+}
+
+std::pair<ErrorCode, size_t> Socks5IoStream::waitForData(size_t seconds) {
+	return std::pair<ErrorCode, size_t>{};
+}
+
+void Socks5IoStream::write(ClientId id, const Buffer& buffer) {
+
+}
+
+void Socks5Server::Buffer::recieve() {
 	auto [error, clientCount] { waitForClients(socket_) };
 	recieved = recv(socket_, reinterpret_cast<char*>(data), sizeof(data), 0);
 }
@@ -39,8 +50,9 @@ bool Socks5Server::start(const char* host, unsigned short port, std::unique_ptr<
 			break;
 
 		while (clientCount--) {
-			Client client{ server.acceptClient() };
-			if (!client.valid) continue;
+			Client client;
+			client.socketInfo = server.acceptClient();
+			if (!client.socketInfo.valid) continue;
 			std::thread handleRequest{ [this, &client]() { proxyRequest(client); } };
 			handleRequest.detach();
 		}
@@ -67,7 +79,7 @@ AuthMethod Socks5Server::checkAuthMethod(Buffer& buffer, Socks5Server::Client& c
 				int authed = 0;
 				const std::lock_guard<std::mutex> lock(authenticatedClientsMutex);
 				for (i = 0; i < authenticatedClients.size(); i++) {
-					if ((authed = isAuthenticated(client.address, authenticatedClients.at(i).address)))
+					if ((authed = isAuthenticated(client.socketInfo.address, authenticatedClients.at(i).socketInfo.address)))
 						break;
 				}
 				if (authed) return AuthMethod::NO_AUTH;
@@ -152,11 +164,11 @@ ErrorCode Socks5Server::connectClient(Buffer& buffer, Socks5Server::Client& clie
 
 	freeaddrinfo(remote);
 	char clientname[256];
-	af = *family(&client.address);
-	void* ipdata = address(&client.address);
+	af = *family(&client.socketInfo.address);
+	void* ipdata = address(&client.socketInfo.address);
 	inet_ntop(af, ipdata, clientname, sizeof clientname);
 	if (verbose)
-		fprintf(stderr, "client[%d] %s: connected to %s:%d\n", client.socket_, clientname, host, port);
+		fprintf(stderr, "client[%d] %s: connected to %s:%d\n", client.socketInfo.socket_, clientname, host, port);
 	return static_cast<ErrorCode>(fd);
 }
 
@@ -180,42 +192,42 @@ ErrorCode Socks5Server::checkCredentials(Buffer& buffer) {
 void* Socks5Server::proxyRequest(Socks5Server::Client client) {
 	using State = Socks5Server::Client::State;
 	client.state = State::CONNECTED;
-	Buffer buffer(client.socket_);
+	Buffer buffer(client.socketInfo.socket_);
 	while (buffer.recieve(), buffer.recieved > 0) {
 		switch (client.state) {
 		case State::CONNECTED: {
 			auto authMethod{ checkAuthMethod(buffer, client) };
 			if (authMethod == AuthMethod::NO_AUTH) client.state = State::AUTHED;
 			else if (authMethod == AuthMethod::USERNAME) client.state = State::NEED_AUTH;
-			sendResponseCode(client.socket_, 5, static_cast<int>(authMethod));
+			sendResponseCode(client.socketInfo.socket_, 5, static_cast<int>(authMethod));
 			if (authMethod == AuthMethod::INVALID) goto breakloop;
 			break;
 		}
 		case State::NEED_AUTH: {
 			auto value{ checkCredentials(buffer) };
-			sendResponseCode(client.socket_, 1, static_cast<int>(value));
+			sendResponseCode(client.socketInfo.socket_, 1, static_cast<int>(value));
 			if (value != ErrorCode::SUCCESS)
 				goto breakloop;
 			client.state = State::AUTHED;
 			if (maintainAuthentication)
-				addAuthAddress(client);
+				addAuthAddress(authenticatedClients, client);
 			break;
 		}
 		case State::AUTHED: {
 			auto remoteSocket{ static_cast<Socket>(connectClient(buffer, client)) };
 			if (remoteSocket < 0) {
-				sendError(client.socket_, static_cast<ErrorCode>(remoteSocket));
+				sendError(client.socketInfo.socket_, static_cast<ErrorCode>(remoteSocket));
 				goto breakloop;
 			}
-			sendError(client.socket_, ErrorCode::SUCCESS);
-			copy(client.socket_, remoteSocket);
+			sendError(client.socketInfo.socket_, ErrorCode::SUCCESS);
+			copy(client.socketInfo.socket_, remoteSocket);
 			closesocket_(remoteSocket);
 			goto breakloop;
 		}
 		}
 	}
 breakloop:
-	closesocket_(client.socket_);
+	closesocket_(client.socketInfo.socket_);
 	return 0;
 }
 

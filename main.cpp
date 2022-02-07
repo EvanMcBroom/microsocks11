@@ -1,5 +1,4 @@
 // Copyright (C) 2020 Evan McBroom
-
 #include <cxxopts.hpp>
 #include <socks5.h>
 
